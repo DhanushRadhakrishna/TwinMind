@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,8 +42,10 @@ class MainActivity : ComponentActivity() {
             TwinMindTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Home(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = Modifier.padding(innerPadding).fillMaxWidth(),
                         startRecording = { startRecording() },
+                        stopRecording =  { viewModel.stopService() },
+                        startPlaying = { viewModel.playAudio() }
                     )
                 }
             }

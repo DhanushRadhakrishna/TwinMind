@@ -19,7 +19,7 @@
             android:name=".recorder.MyRecorder"
             android:enabled="true"
             android:foregroundServiceType="microphone"
-            android:exported="true" >
+            android:exported="false" >
         </service>
 
         <activity

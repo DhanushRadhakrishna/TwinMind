@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
@@ -19,31 +20,45 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.habits.twinmind.R
+import com.habits.twinmind.ui.stateholder.RecordingStateHolder
 import java.io.File
 
-class MyRecorder : Service() {
+class MyRecorder() : Service() {
 
+
+    private var notification : Notification? = null
+    private var myAudioRecorder : AudioRecorder? = null
 
     val channelId = "101"
+    val notificationId = 101
+
     override fun onBind(intent: Intent): IBinder {
         TODO("Return the communication channel to the service.")
     }
+
+    companion object {
+        var audioFileCount = -1
+    }
+    private var audioFile : File? = null
 
 
     override fun onCreate() {
         super.onCreate()
         Log.i("ServiceClass","OnCreate")
+        myAudioRecorder = AudioRecorder(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i("ServiceClass","OnStartCommand")
+        //prepare audio file
+        audioFile = File(application.cacheDir,"TwinMindAudioFile${++RecordingStateHolder.audioFileNumber}")
         //prepare notification
-        val notification = buildNotification()
+        notification = buildNotification()
         try{
             ServiceCompat.startForeground(
                 this,
-                100,
-                notification,
+                notificationId,
+                notification!!,
                 if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                 {
                     Log.i("ServiceClass","OnStartCommand: inside startForeground")
@@ -57,17 +72,10 @@ class MyRecorder : Service() {
         {
             Log.i("ServiceClass","OnStartCommand: Exception $e")
         }
-        NotificationManagerCompat.from(this).apply {
-            if (ActivityCompat.checkSelfPermission(
-                    this@MyRecorder,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return  START_NOT_STICKY
-            }
-            notify(101,notification)
-        }
-        return START_STICKY
+
+        myAudioRecorder?.start(audioFile!!)
+        showNotification()
+        return super.onStartCommand(intent, flags, startId)
     }
     fun buildNotification() : Notification
     {
@@ -82,6 +90,20 @@ class MyRecorder : Service() {
             .setContentText("TwinMind is recording")
         Log.i("ServiceClass","OnStartCommand: Notification Built")
         return notification.build()
+    }
+    fun showNotification()
+    {
+        Log.i("ServiceClass","showNotification: ")
+        NotificationManagerCompat.from(this).apply {
+            if (ActivityCompat.checkSelfPermission(
+                    this@MyRecorder,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            notify(notificationId,notification!!)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -109,10 +131,18 @@ class MyRecorder : Service() {
 
 
     }
-
-    private fun startForeground()
+    fun stopRecording()
     {
-        Log.i("ServiceClass","startForeground")
+        myAudioRecorder?.stop()
     }
+
+    override fun onDestroy() {
+        Log.i("ServiceClass","OnDestroy: Service Destroyed")
+        myAudioRecorder?.stop()
+        RecordingStateHolder.updateRecordingState(false)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
 
 }
