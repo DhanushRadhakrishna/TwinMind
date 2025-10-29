@@ -14,6 +14,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,15 +30,13 @@ import java.security.Permission
 
 class MainActivity : ComponentActivity() {
 
-    var statusText : String = ""
     private val viewModel : MainViewModel by viewModels(factoryProducer = { MyViewModelFactory(application) })
-    private val PERMISSION_MICROPHONE_CODE = 1
-    private val PERMISSION_NOTIFICATION_CODE = 2
+    private val PERMISSION_REQUEST_CODE = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
+        enableEdgeToEdge()
         setContent {
             TwinMindTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -54,47 +53,69 @@ class MainActivity : ComponentActivity() {
 
 
 
+    private fun askMicrophonePermission()
+    {
+        Log.i("ServiceClass", "Microphone permission: askMic")
+        ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.RECORD_AUDIO),PERMISSION_REQUEST_CODE)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun askNotificationPermission()
+    {
+        Log.i("ServiceClass", "Microphone permission: askNotification")
+        ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.POST_NOTIFICATIONS),PERMISSION_REQUEST_CODE)
+    }
     private fun startRecording()
     {
         Log.i("ServiceClass", "ButtonClicked")
         val permissionsNeeded = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.RECORD_AUDIO),PERMISSION_MICROPHONE_CODE)
+            permissionsNeeded.add(Manifest.permission.RECORD_AUDIO)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,arrayOf(Manifest.permission.POST_NOTIFICATIONS),PERMISSION_NOTIFICATION_CODE)
+                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+        if (permissionsNeeded.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsNeeded.toTypedArray(), PERMISSION_REQUEST_CODE)
+            return
+        }
         viewModel.startService()
-
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when(requestCode){
-            PERMISSION_MICROPHONE_CODE ->{
-                if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                {
-                    return
-                }
-                else{
-                    Toast.makeText(this,"Need Microphone permission to record audio", Toast.LENGTH_LONG).show()
+        permissions: Array<out String?>,
+        grantResults: IntArray,
+        deviceId: Int
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            val deniedPermissions = mutableListOf<String>()
+            for (i in permissions.indices) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                    permissions[i]?.let { deniedPermissions.add(it) }
                 }
             }
-            PERMISSION_NOTIFICATION_CODE ->{
-                if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                {
-                    return
-                }
-                else{
-                    Toast.makeText(this,"Need notification permission to record audio", Toast.LENGTH_LONG).show()
+            if (deniedPermissions.isEmpty()) {
+                viewModel.startService()
+            } else {
+                for (permission in deniedPermissions) {
+                    when (permission) {
+                        Manifest.permission.RECORD_AUDIO -> Toast.makeText(this, "Need Microphone permission to record audio", Toast.LENGTH_LONG).show()
+                        Manifest.permission.POST_NOTIFICATIONS -> Toast.makeText(this, "Need notification permission to record audio", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }
+    }
+
+
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.stopService()
     }
 
 
