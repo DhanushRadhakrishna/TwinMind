@@ -5,7 +5,6 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import androidx.core.net.toUri
-import com.habits.twinmind.ui.stateholder.RecordingStateHolder
 import java.io.File
 import java.io.FileOutputStream
 
@@ -13,6 +12,8 @@ import java.io.FileOutputStream
 interface  AudioRecorderInterface{
     fun start(outputFile : File)
     fun stop()
+    fun pause()
+    fun resume()
 }
 class AudioRecorder(private val context: Context) :  AudioRecorderInterface{
 
@@ -28,7 +29,7 @@ class AudioRecorder(private val context: Context) :  AudioRecorderInterface{
     }
 
     override fun start(outputFile: File) {
-        RecordingStateHolder.updateRecordingState(true)
+//        RecordingStateHolder.updateRecordingState(true)
         createRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -45,30 +46,53 @@ class AudioRecorder(private val context: Context) :  AudioRecorderInterface{
 
     }
 
+    override fun resume() {
+        recorder?.resume()
+    }
+
+    override fun pause() {
+        recorder?.pause()
+    }
+
+
     override fun stop() {
 
         recorder?.stop()
         recorder?.reset()
         recorder = null
-        RecordingStateHolder.updateRecordingState(false)
+//        RecordingStateHolder.updateRecordingState(false)
     }
 }
 
 class AndroidAudioPlayer(private val context : Context)
 {
     private var mediaPlayer : MediaPlayer? = null
-    fun start(file : File)
+    fun start(file : File, onCompletion: () -> Unit)
     {
         MediaPlayer.create(context,file.toUri()).apply{
             mediaPlayer = this
             start()
+        }
+        mediaPlayer?.setOnCompletionListener {
+            onCompletion()
         }
     }
 
     fun stop()
     {
         mediaPlayer?.stop()
+//        mediaPlayer?.reset()
+//        mediaPlayer =null
+    }
+
+    fun isPlaying(): Boolean {
+        return mediaPlayer?.isPlaying ?: false
+    }
+
+    fun resetAndClearPlayer()
+    {
         mediaPlayer?.reset()
-        mediaPlayer =null
+        mediaPlayer = null
+        mediaPlayer?.release()
     }
 }

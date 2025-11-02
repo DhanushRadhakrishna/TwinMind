@@ -9,19 +9,32 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
+import androidx.compose.runtime.getValue
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.habits.twinmind.R
 import com.habits.twinmind.ui.stateholder.RecordingStateHolder
+import kotlinx.coroutines.CompletableJob
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
+import java.security.Permission
 
 class MyRecorder() : Service() {
 
@@ -29,29 +42,55 @@ class MyRecorder() : Service() {
     private var notification : Notification? = null
     private var myAudioRecorder : AudioRecorder? = null
 
+
+//    private var wavRecorder : WAVRecorder? = null
+
     val channelId = "101"
     val notificationId = 101
+
+    private val serviceJob = SupervisorJob()
+    private var callListenerJob : Job? = null
+    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
+
+    var phoneStateListener : PhoneStateChangeListener? =null
 
     override fun onBind(intent: Intent): IBinder {
         TODO("Return the communication channel to the service.")
     }
 
-    companion object {
-        var audioFileCount = -1
-    }
     private var audioFile : File? = null
-
 
     override fun onCreate() {
         super.onCreate()
         Log.i("ServiceClass","OnCreate")
         myAudioRecorder = AudioRecorder(this)
+        phoneStateListener = PhoneStateChangeListener(application)
+        phoneStateListener?.registerCallStateListener()
+        //prepare audio file
+        audioFile = File(application.cacheDir,"TwinMindAudioFile${++RecordingStateHolder.audioFileNumber}")
+
+        //listen to the recording state holder
+        callListenerJob = serviceScope.launch {
+            RecordingStateHolder.onCall.collect { newState ->
+                when(newState) {
+                    true ->{
+                        myAudioRecorder?.pause()
+                        Log.i("ServiceClass","Pausing Recording")
+                    }
+
+                    false ->{
+                        myAudioRecorder?.resume()
+                        Log.i("ServiceClass","Pausing Recording")
+                    }
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i("ServiceClass","OnStartCommand")
-        //prepare audio file
-        audioFile = File(application.cacheDir,"TwinMindAudioFile${++RecordingStateHolder.audioFileNumber}")
+
+        Log.i("ServiceClass","OnStartCommand: AudioFile path ${audioFile?.path} AudioFile name: ${audioFile?.name}")
         //prepare notification
         notification = buildNotification()
         try{
@@ -72,11 +111,30 @@ class MyRecorder() : Service() {
         {
             Log.i("ServiceClass","OnStartCommand: Exception $e")
         }
+//        if(ContextCompat.checkSelfPermission(this@MyRecorder, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+//        {
+//            startWAVRecording()
+//        }
 
-        myAudioRecorder?.start(audioFile!!)
         showNotification()
+        startRecording()
         return super.onStartCommand(intent, flags, startId)
     }
+    fun startRecording()
+    {
+        RecordingStateHolder.updateRecordingState(true)
+        try {
+            serviceScope.launch {
+                myAudioRecorder?.start(audioFile!!)
+            }
+        } catch (e: Exception) {
+            Log.i("ServiceClass","StartRecording: Exception ${e.message}")
+            RecordingStateHolder.updateRecordingState(false)
+        }
+
+    }
+
+
     fun buildNotification() : Notification
     {
         var channel : NotificationChannel? = null
@@ -85,6 +143,7 @@ class MyRecorder() : Service() {
             channel = buildNotificationChannel()
         }
         val notification = NotificationCompat.Builder(this,channelId)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("TwinMind")
             .setContentText("TwinMind is recording")
@@ -113,7 +172,7 @@ class MyRecorder() : Service() {
 
         val name = "Recording Service."
         val descriptionText = "TwinMind to display notification when it is recording."
-        val importance = NotificationManager.IMPORTANCE_HIGH
+        val importance = NotificationManager.IMPORTANCE_LOW
         notificationChannel = NotificationChannel(channelId,name,importance).apply {
             description = descriptionText
         }
@@ -126,23 +185,76 @@ class MyRecorder() : Service() {
     }
 
 
-    fun startRecording()
+    fun pauseRecording()
     {
-
-
+        RecordingStateHolder.updateRecordingState(false)
+        myAudioRecorder?.pause()
     }
     fun stopRecording()
     {
+        RecordingStateHolder.updateRecordingState(false)
         myAudioRecorder?.stop()
+    }
+
+    fun resumeRecording()
+    {
+        RecordingStateHolder.updateRecordingState(true)
+        myAudioRecorder?.resume()
     }
 
     override fun onDestroy() {
         Log.i("ServiceClass","OnDestroy: Service Destroyed")
+        phoneStateListener?.unregisterCallStateListener()
         myAudioRecorder?.stop()
         RecordingStateHolder.updateRecordingState(false)
+//        stopWAVRecording()
+        callListenerJob?.cancel()
+        serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
 
 }
+
+//@RequiresPermission(Manifest.permission.RECORD_AUDIO)
+//    fun startWAVRecording()
+//    {
+//        RecordingStateHolder.updateRecordingState(true)
+//        try {
+//            serviceScope.launch{
+//
+//                wavRecorder = WAVRecorder(application.cacheDir.path)
+//                wavRecorder?.startRecording()
+//
+//            }
+//        }catch (e : Exception)
+//        {
+//            Log.i("ServiceClass","OnStartCommand: Exception ${e.message}")
+//            RecordingStateHolder.updateRecordingState(false)
+//        }
+//
+//    }
+//fun stopWAVRecording()
+//    {
+//        RecordingStateHolder.updateRecordingState(false)
+//        wavRecorder?.stopRecording()
+//        serviceJob.cancel()
+//
+//    }
+//fun playWAVFile()
+//{
+//    val wavFile = File(application.cacheDir, "TwinMind.wav")
+//    Log.i("MainViewModel","wavFile: ${wavFile.path}")
+//    if (wavFile.exists()) {
+//        val mediaPlayer = MediaPlayer.create(application, Uri.fromFile(wavFile))
+//        mediaPlayer?.apply {
+//            setOnCompletionListener {
+//                it.release() // free resources after playback
+//            }
+//            start()
+//        } ?: run {
+//            Log.e("Player", "Unable to create MediaPlayer for file: ${wavFile.path}")
+//        }
+//    }
+//}

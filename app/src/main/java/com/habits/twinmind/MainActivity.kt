@@ -18,11 +18,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.habits.twinmind.ui.screens.Home
+import com.habits.twinmind.ui.stateholder.RecordingStateHolder
 import com.habits.twinmind.ui.theme.TwinMindTheme
 import com.habits.twinmind.ui.viewmodel.MainViewModel
 import com.habits.twinmind.ui.viewmodel.MyViewModelFactory
@@ -38,20 +42,29 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
+            val isRecording by RecordingStateHolder.isRecording.collectAsStateWithLifecycle()
+            val elapsedTime by viewModel.timer.collectAsStateWithLifecycle()
+            val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
             TwinMindTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Home(
                         modifier = Modifier.padding(innerPadding).fillMaxWidth(),
                         startRecording = { startRecording() },
                         stopRecording =  { viewModel.stopService() },
-                        startPlaying = { viewModel.playAudio() }
+                        startPlaying = { viewModel.playAudio() },
+                        stopPlaying = { viewModel.stopPlayingAudio() },
+                        elapsedTime= elapsedTime,
+                        isPlaying= isPlaying,
+                        isRecording = isRecording
                     )
                 }
             }
+            LaunchedEffect(RecordingStateHolder.isRecording) {
+                Log.i("ComposeUI", "Recomposition: isRecording = $RecordingStateHolder.isRecording")
+            }
         }
+
     }
-
-
 
     private fun askMicrophonePermission()
     {
@@ -76,6 +89,10 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED)
+        {
+            permissionsNeeded.add(Manifest.permission.READ_PHONE_STATE)
         }
         if (permissionsNeeded.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissionsNeeded.toTypedArray(), PERMISSION_REQUEST_CODE)
@@ -115,6 +132,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
         viewModel.stopService()
     }
 
