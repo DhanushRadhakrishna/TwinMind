@@ -62,7 +62,18 @@ class MainViewModel(val application: Application) : ViewModel() {
     {
         viewModelScope.cancel()
         Log.i("MainViewModel","stopService: ViewModel stop service method")
+        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.STOPPED)
         application.stopService(intent)
+    }
+
+    fun pauseRecording()
+    {
+        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.PAUSED)
+    }
+
+    fun resumeRecording()
+    {
+        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.RESUMED)
     }
 
     fun playAudio()

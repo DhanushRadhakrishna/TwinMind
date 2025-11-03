@@ -1,6 +1,7 @@
 package com.habits.twinmind.ui.screens
 
 import android.util.Log
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,8 +38,10 @@ fun Home(
     startPlaying : () -> Unit,
     stopPlaying : () -> Unit,
     elapsedTime : Long,
+    pauseRecording: () -> Unit,
+    resumeRecording: () -> Unit,
     isPlaying : Boolean,
-    isRecording : Boolean
+    isRecording : RecordingStateHolder.RecordingStates
 ) {
 
     Column(
@@ -55,7 +58,7 @@ fun Home(
         ) {
             Text(
                 modifier = Modifier.padding(end = 16.dp),
-                text = if(isRecording) "Recording.." else "",
+                text = if(isRecording == RecordingStateHolder.RecordingStates.RECORDING) "Recording.." else "",
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center
             )
@@ -64,6 +67,30 @@ fun Home(
                 style = MaterialTheme.typography.headlineMedium,
                 textAlign = TextAlign.Center
             )
+            if (isRecording == RecordingStateHolder.RecordingStates.RECORDING) {
+                Icon(
+                    imageVector = Icons.Default.AddCircle,
+                    contentDescription =  "Pause Recording",
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .clickable {
+                                pauseRecording()
+                            }
+                )
+            }
+            if(isRecording!= RecordingStateHolder.RecordingStates.RECORDING){
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription =  "Resume Recording",
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .clickable {
+                            resumeRecording()
+                        }
+
+                )
+            }
+
         }
 
         // Buttons row aligned at bottom
@@ -77,7 +104,7 @@ fun Home(
             Button(
                 modifier = Modifier.padding(start = 18.dp,end = 4.dp),
                 onClick = {
-                    if (isRecording) {
+                    if (isRecording == RecordingStateHolder.RecordingStates.RECORDING) {
                         stopRecording()
 
                     } else {
@@ -85,7 +112,7 @@ fun Home(
                     }
                 }
             ) {
-                if (isRecording) {
+                if (isRecording == RecordingStateHolder.RecordingStates.RECORDING) {
                     Icon(
                         imageVector = Icons.Default.AddCircle,
                         contentDescription = "Stop Recording",
@@ -103,7 +130,7 @@ fun Home(
             }
             Button(
                 modifier = Modifier.padding(end =18.dp),
-                enabled = !isRecording,
+//                enabled = isRecording == RecordingStateHolder.RecordingStates.RECORDING,
                 onClick = {
                     if(!isPlaying)
                     {
@@ -153,8 +180,11 @@ fun HomePreview() {
         {},
         {},
         {},
-        0,
-        true,
-        true)
+        resumeRecording = {},
+        pauseRecording = {},
+        elapsedTime = 0,
+        isPlaying = false,
+        isRecording = RecordingStateHolder.RecordingStates.RECORDING,
+        )
 
 }

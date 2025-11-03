@@ -12,8 +12,15 @@ object RecordingStateHolder{
         OTHER
 
     }
-    private val _isRecording = MutableStateFlow(false)
-    val isRecording : StateFlow<Boolean> = _isRecording.asStateFlow()
+    enum class RecordingStates{
+        RECORDING,
+        PAUSED,
+        RESUMED,
+        STOPPED,
+        UNINITIALIZED
+    }
+    private val _isRecording = MutableStateFlow<RecordingStates>(RecordingStates.UNINITIALIZED)
+    val isRecording : StateFlow<RecordingStates> = _isRecording.asStateFlow()
 
     private val _onCall = MutableStateFlow(false)
     val onCall : StateFlow<Boolean> = _onCall.asStateFlow()
@@ -22,7 +29,7 @@ object RecordingStateHolder{
     val audioFocus : StateFlow<MicFocus> = _audioFocus.asStateFlow()
 
     var audioFileNumber = -1
-    fun updateRecordingState(newState : Boolean)
+    fun updateRecordingState(newState : RecordingStates)
     {
         _isRecording.update {
             newState

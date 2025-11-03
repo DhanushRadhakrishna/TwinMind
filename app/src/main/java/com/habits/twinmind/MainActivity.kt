@@ -55,7 +55,9 @@ class MainActivity : ComponentActivity() {
                         stopPlaying = { viewModel.stopPlayingAudio() },
                         elapsedTime= elapsedTime,
                         isPlaying= isPlaying,
-                        isRecording = isRecording
+                        isRecording = isRecording,
+                        pauseRecording = { viewModel.pauseRecording() },
+                        resumeRecording = { viewModel.resumeRecording() }
                     )
                 }
             }

@@ -28,8 +28,12 @@ class PhoneStateChangeListener(val context : Context)  {
                     Log.i("PhoneStateChangeListener", "Pausing Recording (OFFHOOK)")
                 }
                 TelephonyManager.CALL_STATE_IDLE -> {
-                    RecordingStateHolder.updateOnCallStatus(false)
-                    Log.i("PhoneStateChangeListener", "Resuming Recording (IDLE)")
+                    if(RecordingStateHolder.onCall.value)
+                    {
+                        RecordingStateHolder.updateOnCallStatus(false)
+                        Log.i("PhoneStateChangeListener", "Resuming Recording (IDLE)")
+                    }
+
                 }
             }
         }
