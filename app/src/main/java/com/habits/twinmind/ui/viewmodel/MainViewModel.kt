@@ -82,9 +82,6 @@ class MainViewModel(val application: Application) : ViewModel() {
         val file = File(application.cacheDir,"TwinMindAudioFile${RecordingStateHolder.audioFileNumber}")
         Log.i("MainViewModel","Audio file: ${file.name} + ${file.path}")
         audioPlayer = AndroidAudioPlayer(application)
-//        val audioPlayer by lazy {
-//            AndroidAudioPlayer(application)
-//        }
         audioPlayer!!.start(file) { onFinishedPlayingAudio() }
     }
 

@@ -41,8 +41,6 @@ class MyRecorder() : Service() {
 
     private var notification : Notification? = null
     private var myAudioRecorder : AudioRecorder? = null
-
-
 //    private var wavRecorder : WAVRecorder? = null
 
     val channelId = "101"
@@ -71,21 +69,21 @@ class MyRecorder() : Service() {
         audioFile = File(application.cacheDir,"TwinMindAudioFile${++RecordingStateHolder.audioFileNumber}")
 
         //listen to the recording state holder
-//        callListenerJob = serviceScope.launch {
-//            RecordingStateHolder.onCall.collect { newState ->
-//                when(newState) {
-//                    true ->{
-//                        pauseRecording()
-//                        Log.i("ServiceClass","onCallState = $newState")
-//                    }
-//
-//                    false ->{
-//                        resumeRecording()
-//                        Log.i("ServiceClass","onCallState = $newState")
-//                    }
-//                }
-//            }
-//        }
+        callListenerJob = serviceScope.launch {
+            RecordingStateHolder.onCall.collect { newState ->
+                when(newState) {
+                    true ->{
+                        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.PAUSED)
+                        Log.i("ServiceClass","onCallState = $newState")
+                    }
+
+                    false ->{
+                        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.RESUMED)
+                        Log.i("ServiceClass","onCallState = $newState")
+                    }
+                }
+            }
+        }
         recordingStateListenerJob = serviceScope.launch {
             RecordingStateHolder.isRecording.collect { newState ->
                 when(newState){
@@ -206,36 +204,32 @@ class MyRecorder() : Service() {
 
     fun pauseRecording()
     {
-//        RecordingStateHolder.updateRecordingState(false)
         Log.i("ServiceClass","Pausing recording")
         myAudioRecorder?.pause()
     }
     fun stopRecording()
     {
-//        RecordingStateHolder.updateRecordingState(false)
         Log.i("ServiceClass","Stopping recording")
         myAudioRecorder?.stop()
     }
 
     fun resumeRecording()
     {
-//        RecordingStateHolder.updateRecordingState(true)
         if(myAudioRecorder?.isPaused==true)
         {
             myAudioRecorder?.resume()
             Log.i("ServiceClass","Resuming recording")
         }
         RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.RECORDING)
-
-//        RecordingStateHolder.updateRecordingState(RecordingStateHolder.RecordingStates.RESUMED)
     }
 
     override fun onDestroy() {
         Log.i("ServiceClass","OnDestroy: Service Destroyed")
-//        phoneStateListener?.unregisterCallStateListener()
-//        stopRecording()
+        phoneStateListener?.unregisterCallStateListener()
+        stopRecording()
 //        stopWAVRecording()
-//        callListenerJob?.cancel()
+        callListenerJob?.cancel()
+        recordingStateListenerJob?.cancel()
         serviceScope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
